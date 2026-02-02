@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 def get_arm_disarm_times(bin_file: str) -> Tuple[float, float]:
     """
-    Parses a Pixhawk .bin file to find the first ARM and last DISARM event times.
-    Returns a tuple of (arm_time_sec, disarm_time_sec).
+    Parses a Pixhawk .bin file to find identifying ARM and DISARM events using ARM.ArmState.
+    - Exports all ARM messages to <bin_file>_arm.csv.
+    - Returns (first_arm_time_sec, last_disarm_time_sec).
     """
     if not os.path.exists(bin_file):
         raise FileNotFoundError(f"Binary file not found: {bin_file}")
@@ -39,34 +40,64 @@ def get_arm_disarm_times(bin_file: str) -> Tuple[float, float]:
     logger.info("Parsing .bin file: %s", bin_file)
     mav_conn = mavutil.mavlink_connection(bin_file)
 
-    arm_events = []
-    disarm_events = []
+    arm_messages = []
 
     while True:
-        msg = mav_conn.recv_match(type=["EV"], blocking=False)
+        msg = mav_conn.recv_match(type=["ARM"], blocking=False)
         if msg is None:
             break
 
         if msg.get_type() == "BAD_DATA":
             continue
 
-        if msg.Id == 10:
+        if msg.get_type() == "ARM":
             t_sec = msg.TimeUS / 1_000_000.0
-            arm_events.append(t_sec)
-        elif msg.Id == 11:  # DISARM
-            t_sec = msg.TimeUS / 1_000_000.0
-            disarm_events.append(t_sec)
+            arm_state = getattr(msg, "ArmState", None)
+            arm_messages.append(
+                {"TimeUS": msg.TimeUS, "TimeS": t_sec, "ArmState": arm_state}
+            )
 
-    logger.info(
-        "Found %d ARM events and %d DISARM events.", len(arm_events), len(disarm_events)
-    )
+    logger.info("Found %d ARM messages.", len(arm_messages))
 
-    if len(arm_events) != 1 or len(disarm_events) != 1:
-        logger.error("Validation failed: Expected exactly 1 ARM and 1 DISARM event.")
-        logger.error("Found: %d ARM, %d DISARM", len(arm_events), len(disarm_events))
-        raise ValueError("Log does not contain exactly one ARM and one DISARM event.")
+    base, _ = os.path.splitext(bin_file)
+    arm_csv_file = f"{base}_arm.csv"
+    logger.info("Exporting ARM messages to: %s", arm_csv_file)
 
-    return arm_events[0], disarm_events[0]
+    if arm_messages:
+        keys = arm_messages[0].keys()
+        with open(arm_csv_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(arm_messages)
+    else:
+        logger.warning("No ARM messages found to export.")
+
+    first_arm_time = None
+    last_disarm_time = None
+
+    for msg in arm_messages:
+        state = msg["ArmState"]
+        t_sec = msg["TimeS"]
+
+        if first_arm_time is None and state == 1:
+            first_arm_time = t_sec
+
+        if state == 0:
+            last_disarm_time = t_sec
+
+    if first_arm_time is None:
+        raise ValueError("Could not find any ARM event (ArmState=1).")
+
+    if last_disarm_time is None:
+        raise ValueError("Could not find any DISARM event (ArmState=0).")
+
+    if last_disarm_time < first_arm_time:
+        pass
+
+    logger.info("First ARM Time: %.4f", first_arm_time)
+    logger.info("Last DISARM Time: %.4f", last_disarm_time)
+
+    return first_arm_time, last_disarm_time
 
 
 def parse_csv_timestamps(

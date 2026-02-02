@@ -34,7 +34,7 @@ try:
     from pymavlink.dialects.v10.ardupilotmega import MAVLink_message
     from pymavlink.mavutil import mavserial
 except ImportError:
-    # Ensure pylint doesn't crash on entire file analysis if these are missing in env
+    pass
     pass
 
 logger = logging.getLogger(__name__)
