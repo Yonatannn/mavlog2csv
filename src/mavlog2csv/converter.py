@@ -14,18 +14,7 @@ import operator
 import re
 import sys
 import textwrap
-from typing import (
-    IO,
-    Any,
-    ContextManager,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import IO, Any, ContextManager, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 try:
     from pymavlink import mavutil

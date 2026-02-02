@@ -1,15 +1,10 @@
 import csv
 import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
 
-from sync_logs import get_arm_disarm_times, parse_csv_timestamps, sync_and_write
-
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
-)
+from mavlog2csv.sync import get_arm_disarm_times, parse_csv_timestamps, sync_and_write
 
 
 @pytest.fixture
@@ -29,7 +24,7 @@ def test_get_arm_disarm_times_success(mock_files, monkeypatch):
     mock_conn = MagicMock()
     mock_mavutil = MagicMock()
     mock_mavutil.mavlink_connection.return_value = mock_conn
-    monkeypatch.setattr("sync_logs.mavutil", mock_mavutil)
+    monkeypatch.setattr("mavlog2csv.sync.mavutil", mock_mavutil)
 
     msg1 = MagicMock()
     msg1.get_type.return_value = "ARM"
@@ -91,7 +86,7 @@ def test_parse_csv_timestamps(mock_files):
 def test_sync_and_write(mock_files, monkeypatch):
     bin_file, csv_file, output_file = mock_files
 
-    monkeypatch.setattr("sync_logs.get_arm_disarm_times", lambda x: (100.0, 110.0))
+    monkeypatch.setattr("mavlog2csv.sync.get_arm_disarm_times", lambda x: (100.0, 110.0))
 
     import datetime
 
@@ -103,7 +98,7 @@ def test_sync_and_write(mock_files, monkeypatch):
         {"time": "2026-02-02T10:00:20:000", "val": 3},
     ]
     monkeypatch.setattr(
-        "sync_logs.parse_csv_timestamps",
+        "mavlog2csv.sync.parse_csv_timestamps",
         lambda x: (start, end, rows, ["time", "val"], "time"),
     )
 

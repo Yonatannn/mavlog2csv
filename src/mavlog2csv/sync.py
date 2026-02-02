@@ -53,9 +53,7 @@ def get_arm_disarm_times(bin_file: str) -> Tuple[float, float]:
         if msg.get_type() == "ARM":
             t_sec = msg.TimeUS / 1_000_000.0
             arm_state = getattr(msg, "ArmState", None)
-            arm_messages.append(
-                {"TimeUS": msg.TimeUS, "TimeS": t_sec, "ArmState": arm_state}
-            )
+            arm_messages.append({"TimeUS": msg.TimeUS, "TimeS": t_sec, "ArmState": arm_state})
 
     logger.info("Found %d ARM messages.", len(arm_messages))
 
@@ -153,9 +151,7 @@ def parse_csv_timestamps(
     return start_dt, end_dt, rows, fieldnames, time_col
 
 
-def sync_and_write(
-    bin_file: str, csv_file: str, output_file: Optional[str] = None
-) -> None:
+def sync_and_write(bin_file: str, csv_file: str, output_file: Optional[str] = None) -> None:
     """
     Main function to sync logs and write output.
     """
@@ -163,9 +159,7 @@ def sync_and_write(
     bin_duration = bin_end_sec - bin_start_sec
     logger.info("Pixhawk Log Duration: %.2f seconds", bin_duration)
 
-    csv_start_dt, csv_end_dt, rows, fieldnames, time_col = parse_csv_timestamps(
-        csv_file
-    )
+    csv_start_dt, csv_end_dt, rows, fieldnames, time_col = parse_csv_timestamps(csv_file)
     csv_duration = (csv_end_dt - csv_start_dt).total_seconds()
     logger.info("CSV Log Duration: %.2f seconds", csv_duration)
 
@@ -212,9 +206,7 @@ def sync_and_write(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Sync external CSV with Pixhawk .bin log."
-    )
+    parser = argparse.ArgumentParser(description="Sync external CSV with Pixhawk .bin log.")
     parser.add_argument("bin_file", help="Path to Pixhawk .bin file")
     parser.add_argument("csv_file", help="Path to external CSV log file")
     parser.add_argument("-o", "--output", help="Output synced CSV file")
