@@ -39,8 +39,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# ArduPlane Mode Mapping
-# Reference: https://ardupilot.org/plane/docs/parameters.html#fltmode1
 PLANE_MODE_MAPPING = {
     0: "MANUAL",
     1: "CIRCLE",
@@ -127,13 +125,11 @@ def iter_mavlink_messages(
     If skip_n_arms is not zero, return messages only after skip_n_arms ARM events.
     """
     types = types.copy()
-    types.add("EV")  # EV are events like ARM (id=10) or DISARM (id=11)
-    # Also ensure we catch MODE messages if we need to track mode changes,
-    # though here we rely on the specific message log containing the mode if requested.
+    types = types.copy()
+    types.add("EV")
 
     n_message = 0
     n_armed = 0
-    # pylint: disable=contextmanager-generator-missing-cleanup
     with mavlink_connect(device) as mav_conn:
         while True:
             message: Optional[MAVLink_message] = mav_conn.recv_match(
@@ -148,7 +144,7 @@ def iter_mavlink_messages(
             if is_message_bad(message):
                 continue
 
-            if message.get_type() == "EV" and getattr(message, "Id", None) == 10:  # arm
+            if message.get_type() == "EV" and getattr(message, "Id", None) == 10:
                 logger.debug("Found ARM event: %s", message)
                 n_armed += 1
 
@@ -162,19 +158,14 @@ def message_to_row(message: MAVLink_message, columns: List[str]) -> Dict[str, An
     """Convert mavlink message to output row, mapping modes if applicable."""
     row: Dict[str, Any] = {}
 
-    # Standard Time fields
-    # Note: DF logs usually have TimeUS. If not, fallback might be needed,
-    # but assuming standard DF log.
     if hasattr(message, "TimeUS"):
         row["TimeUS"] = message.TimeUS
         row["TimeS"] = round(message.TimeUS / 1_000_000, 2)
     else:
-        # Fallback if TimeUS is missing (unlikely in standard .bin)
         row["TimeUS"] = 0
         row["TimeS"] = 0
 
     # Timestamp handling
-    # pylint: disable=protected-access
     if hasattr(message, "_timestamp"):
         dt = datetime.datetime.fromtimestamp(message._timestamp)
         row["Date"] = dt.date().isoformat()
@@ -188,11 +179,6 @@ def message_to_row(message: MAVLink_message, columns: List[str]) -> Dict[str, An
     for col in columns:
         col_value = getattr(message, col, None)
 
-        # Apply Mode Mapping
-        # If the message is 'MODE' and column is 'Mode' or 'ModeNum'
-        # Or if the user asked for Mode in another message
-        # (e.g. AHR2.Mode usually doesn't exist)
-        # The primary place Mode appears is the MODE message.
         if msg_type == "MODE" and col in ["Mode", "ModeNum"]:
             if col_value is not None:
                 col_value = get_mode_string(col_value)
@@ -213,20 +199,18 @@ def mavlog2csv(
     """
     parsed_columns: List[Tuple[str, str]] = list(map(parse_cli_column, columns))
 
-    # Collects all required message types like {'GPS', 'ATT', 'ASPD'}
     message_type_filter: Set[str] = set(map(operator.itemgetter(0), parsed_columns))
 
-    # Collects a mapping message type -> columns
     message_type_columns: Dict[str, List[str]] = collections.defaultdict(list)
     for message_type, column in parsed_columns:
         message_type_columns[message_type].append(column)
 
     header = [
-        "TimeUS",  # Original time in US after boot
-        "TimeS",  # Seconds after boot
-        "Date",  # Calculated date of the event
-        "Time",  # Calculated time of the event,
-        *columns,  # User specified columns
+        "TimeUS",
+        "TimeS",
+        "Date",
+        "Time",
+        *columns,
     ]
 
     with open_output(output) as output_file:
@@ -248,7 +232,6 @@ def mavlog2csv(
 
 
 class OutputFormatter:
-    # pylint: disable=too-few-public-methods
     """Helper class for formatting output."""
 
     @staticmethod
@@ -295,7 +278,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Pre-check file extension
     if not args.input.lower().endswith(".bin"):
         print("Error: Input file must be a .bin file.", file=sys.stderr)
         sys.exit(1)
